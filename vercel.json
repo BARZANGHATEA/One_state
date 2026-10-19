@@ -1,6 +1,12 @@
 {
   "functions": {
-    "api/*.js": { "maxDuration": 30 }
+    "api/telegram.js": { "maxDuration": 30 },
+    "api/setup.js": { "maxDuration": 30 },
+    "api/cron.js": { "maxDuration": 30 },
+    "api/run.js": {
+      "maxDuration": 60,
+      "includeFiles": "node_modules/@sparticuz/chromium/bin/**"
+    }
   },
   "crons": [
     { "path": "/api/cron", "schedule": "20 0 * * *" }

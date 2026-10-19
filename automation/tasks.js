@@ -329,9 +329,13 @@ async function looksLoggedOut(page, net) {
   );
 }
 
-// ---------------------------------------------------------------- main per-account flow
+// ---------------------------------------------------------------- per-account flow
 
-export async function runAccount(context, acc, { log, debug, slug, itemName }) {
+// The work is split into 3 steps so each one fits in a short serverless call.
+export const STEPS = ['calendar', 'tasks', 'store'];
+export const STEP_LABELS = { calendar: 'تقویم Daily Rewards', tasks: 'تسک‌های ایونت', store: 'فروشگاه ایونت' };
+
+export async function runAccountStep(context, acc, stepName, { log, debug, slug, itemName }) {
   const page = await context.newPage();
   const net = [];
   page.on('response', (r) => {
@@ -351,31 +355,39 @@ export async function runAccount(context, acc, { log, debug, slug, itemName }) {
     }
   };
 
-  // 1) Daily Rewards calendar
-  await step('calendar', 'تقویم Daily Rewards', () => claimCalendar(page, net, log));
-
-  if (await looksLoggedOut(page, net).catch(() => false)) {
-    result.loggedIn = false;
-    log.file('network.json', JSON.stringify(net, null, 1));
-    return result;
+  if (stepName === 'calendar') {
+    await step('calendar', STEP_LABELS.calendar, () => claimCalendar(page, net, log));
+    if (await looksLoggedOut(page, net).catch(() => false)) result.loggedIn = false;
+  } else if (stepName === 'tasks') {
+    let tasksOpen = false;
+    for (const task of TASKS) {
+      await step(task.key, task.label, async () => {
+        if (!tasksOpen) {
+          await openSection(page, slug, 'tasks');
+          tasksOpen = true;
+        }
+        return claimTask(page, net, task);
+      });
+    }
+  } else if (stepName === 'store') {
+    await step('buy', `خرید آیتم «${itemName}»`, () => buyItem(page, net, slug, itemName, acc, log));
   }
 
-  // 2) Event tasks
-  let tasksOpen = false;
-  for (const task of TASKS) {
-    await step(task.key, task.label, async () => {
-      if (!tasksOpen) {
-        await openSection(page, slug, 'tasks');
-        tasksOpen = true;
-      }
-      return claimTask(page, net, task);
-    });
+  log.file(`network-${stepName}.json`, JSON.stringify(net, null, 1));
+  await page.close().catch(() => {});
+  return result;
+}
+
+// All steps in one go (used when running on your own PC).
+export async function runAccount(context, acc, opts) {
+  const result = { steps: [], loggedIn: true };
+  for (const name of STEPS) {
+    const r = await runAccountStep(context, acc, name, opts);
+    result.steps.push(...r.steps);
+    if (!r.loggedIn) {
+      result.loggedIn = false;
+      break;
+    }
   }
-
-  // 3) Event store: buy the last item named itemName
-  await step('buy', `خرید آیتم «${itemName}»`, () => buyItem(page, net, slug, itemName, acc, log));
-
-  log.file('network.json', JSON.stringify(net, null, 1));
-  await page.close();
   return result;
 }

@@ -1,7 +1,7 @@
 // Telegram webhook (runs on Vercel).
 import { tg, sendMessage, downloadFile, esc } from '../lib/telegram.js';
 import { loadStore, saveStore, normalizeSession } from '../lib/store.js';
-import { dispatchRun } from '../lib/github.js';
+import { triggerRun, baseUrl } from '../lib/trigger.js';
 
 const HELP = `🎃 <b>ربات OneState</b>
 
@@ -30,7 +30,7 @@ export default async function handler(req, res) {
   const update = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};
   const m = update.message;
   try {
-    if (m) await handle(m);
+    if (m) await handle(m, baseUrl(req));
   } catch (e) {
     console.error(e);
     if (m && isAdmin(m)) await sendMessage(m.chat.id, '❌ ' + esc(e.message)).catch(() => {});
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
 
 const isAdmin = (m) => String(m.from?.id) === String(process.env.ADMIN_ID);
 
-async function handle(m) {
+async function handle(m, base) {
   const text = (m.text || m.caption || '').trim();
   const [first = '', ...rest] = text.split(/\s+/);
   const cmd = first.split('@')[0].toLowerCase();
@@ -64,10 +64,10 @@ async function handle(m) {
       return removeAccount(m, arg);
     case '/run':
     case '/debug': {
-      await dispatchRun({ debug: cmd === '/debug', account: arg });
+      await triggerRun(base, { debug: cmd === '/debug', account: arg });
       return sendMessage(
         m.chat.id,
-        `▶️ اجرا${cmd === '/debug' ? ' (حالت عیب‌یابی)' : ''} شروع شد${arg ? ` برای «${esc(arg)}»` : ''}. گزارش تا ۳–۵ دقیقه‌ی دیگر می‌رسد.`,
+        `▶️ اجرا${cmd === '/debug' ? ' (حالت عیب‌یابی)' : ''} شروع شد${arg ? ` برای «${esc(arg)}»` : ''}. گزارش هر اکانت تا چند دقیقه‌ی دیگر می‌رسد.`,
       );
     }
     default:
