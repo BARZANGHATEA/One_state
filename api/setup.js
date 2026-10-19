@@ -5,8 +5,14 @@ import { tg } from '../lib/telegram.js';
 
 export default async function handler(req, res) {
   const secret = process.env.WEBHOOK_SECRET;
+  if (!secret) return res.status(500).send('WEBHOOK_SECRET is not set in Vercel Environment Variables.');
+  if (!/^[A-Za-z0-9_-]{1,256}$/.test(secret)) {
+    return res
+      .status(400)
+      .send('WEBHOOK_SECRET may only contain English letters, numbers, _ and - (no @ # ! etc.). Change it in Vercel, Redeploy, then open this page again.');
+  }
   const key = new URL(req.url, 'http://x').searchParams.get('key');
-  if (!secret || key !== secret) return res.status(401).send('Add ?key=WEBHOOK_SECRET to the address.');
+  if (key !== secret) return res.status(401).send('Wrong key. The address must end with ?key= followed by your WEBHOOK_SECRET.');
   try {
     const url = `https://${req.headers['x-forwarded-host'] || req.headers.host}/api/telegram`;
     await tg('setWebhook', { url, secret_token: secret, allowed_updates: ['message'], drop_pending_updates: true });
