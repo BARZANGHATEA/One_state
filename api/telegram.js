@@ -24,7 +24,7 @@ const ICON = { ok: '✅', done: '✅', claimed: '✅', skip: '⏭️', unknown: 
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(200).send('OneState bot is running.');
-  const secret = process.env.WEBHOOK_SECRET;
+  const secret = (process.env.WEBHOOK_SECRET || '').trim();
   if (secret && req.headers['x-telegram-bot-api-secret-token'] !== secret) return res.status(401).send('unauthorized');
 
   const update = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : req.body || {};

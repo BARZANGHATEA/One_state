@@ -4,12 +4,19 @@
 import { tg } from '../lib/telegram.js';
 
 export default async function handler(req, res) {
-  const secret = process.env.WEBHOOK_SECRET;
+  const secret = (process.env.WEBHOOK_SECRET || '').trim();
   if (!secret) return res.status(500).send('WEBHOOK_SECRET is not set in Vercel Environment Variables.');
   if (!/^[A-Za-z0-9_-]{1,256}$/.test(secret)) {
+    const bad = [...new Set([...secret].filter((c) => !/[A-Za-z0-9_-]/.test(c)))]
+      .map((c) => (c.trim() ? `"${c}"` : `space/newline (code ${c.charCodeAt(0)})`))
+      .join(', ');
     return res
       .status(400)
-      .send('WEBHOOK_SECRET may only contain English letters, numbers, _ and - (no @ # ! etc.). Change it in Vercel, Redeploy, then open this page again.');
+      .send(
+        `WEBHOOK_SECRET may only contain English letters, numbers, _ and -.\n` +
+          `The value this deployment sees starts with "${secret.slice(0, 3)}…", has ${secret.length} characters, and contains: ${bad}\n` +
+          `If this is your OLD password, the new value is not deployed yet: check Environment Variables (Production), then Redeploy.`,
+      );
   }
   const key = new URL(req.url, 'http://x').searchParams.get('key');
   if (key !== secret) return res.status(401).send('Wrong key. The address must end with ?key= followed by your WEBHOOK_SECRET.');
