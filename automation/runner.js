@@ -2,7 +2,7 @@
 // Used by api/run.js (Vercel, one step per call) and automation/run.js (your PC, everything at once).
 import { chromium } from 'playwright-core';
 import { need } from '../lib/env.js';
-import { loadStore, saveStore } from '../lib/store.js';
+import { loadStore, saveStore, sanitizeSession } from '../lib/store.js';
 import { sendMessage, sendImage, tgUpload, esc } from '../lib/telegram.js';
 import { triggerRun } from '../lib/trigger.js';
 import { STEPS, STEP_LABELS, runAccountStep } from './tasks.js';
@@ -33,7 +33,7 @@ export async function launchBrowser() {
 
 export async function newContext(browser, acc) {
   const context = await browser.newContext({
-    storageState: acc.session,
+    storageState: sanitizeSession(acc.session), // also fixes sessions saved before this cleanup existed
     locale: 'en-US',
     userAgent: UA,
     viewport: { width: 1280, height: 1000 },
