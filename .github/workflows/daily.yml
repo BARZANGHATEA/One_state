@@ -1,0 +1,45 @@
+name: OneState daily
+
+on:
+  # Started by the Telegram bot (/run, /debug) and by the daily Vercel cron.
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: "Debug mode: screenshots of every step (true/false)"
+        required: false
+        default: "false"
+        type: string
+      account:
+        description: "Only this account (empty = all)"
+        required: false
+        default: ""
+        type: string
+  # Backup run later in the day, in case the Vercel cron did not fire. Safe to run twice.
+  schedule:
+    - cron: "41 6 * * *"
+
+concurrency:
+  group: onestate
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright-core install --with-deps chromium
+      - run: node automation/run.js
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          ADMIN_ID: ${{ secrets.ADMIN_ID }}
+          SESSION_KEY: ${{ secrets.SESSION_KEY }}
+          STORE_CHAT_ID: ${{ secrets.STORE_CHAT_ID }}
+          EVENT_SLUG: ${{ vars.EVENT_SLUG || 'halloween' }}
+          ITEM_NAME: ${{ vars.ITEM_NAME || '1' }}
+          DEBUG: ${{ inputs.debug || 'false' }}
+          ACCOUNT: ${{ inputs.account || '' }}
